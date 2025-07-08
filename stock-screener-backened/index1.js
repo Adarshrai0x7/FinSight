@@ -24,7 +24,7 @@ app.listen(PORT, () => {
   console.log(`✅ Server is running at http://localhost:${PORT}`);
 });
 
-// For development: log API key only if not in production
+// Development: Log Twelve Data API key
 if (process.env.NODE_ENV !== 'production') {
-  console.log('🔐 Alpha Vantage API Key loaded:', process.env.ALPHA_VANTAGE_API_KEY);
+  console.log('🔐 Twelve Data API Key loaded:', process.env.TWELVE_DATA_API_KEY);
 }

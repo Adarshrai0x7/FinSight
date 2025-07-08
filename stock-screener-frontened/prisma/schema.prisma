@@ -7,22 +7,36 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ...existing code...
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  password  String
-  name      String?
-  role      Role     @default(USER)
-  profile   Profile?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String        @id @default(cuid())
+  email       String        @unique
+  password    String
+  name        String?
+  role        Role          @default(USER)
+  profile     Profile?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  messages    ChatMessage[]
+  firebaseId  String?       @unique // 👈 Added this line
 }
+// ...existing code...
 
 model Profile {
   id     String @id @default(cuid())
   bio    String?
   user   User   @relation(fields: [userId], references: [id])
   userId String @unique
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  userId    String
+  message   String
+  sender    String   // "user" or "bot"
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
 }
 
 enum Role {
