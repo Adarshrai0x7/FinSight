@@ -1,4 +1,4 @@
-# --- Node Logs ---
+# --- Logs ---
 logs
 *.log
 npm-debug.log*
@@ -17,13 +17,13 @@ pids
 *.pid.lock
 
 # --- Build output ---
-lib-cov
 build/
 dist/
 .next/
 out/
+lib-cov/
 
-# --- Coverage & test output ---
+# --- Test output / Coverage ---
 coverage/
 *.lcov
 .nyc_output/
@@ -33,9 +33,6 @@ coverage/
 .parcel-cache/
 .rpt2_cache/
 .rts2_cache_*
-.rts2_cache_es/
-.rts2_cache_cjs/
-.rts2_cache_umd/
 .vitepress/cache/
 .docusaurus/
 
@@ -43,22 +40,28 @@ coverage/
 node_modules/
 bower_components/
 jspm_packages/
+web_modules/ # Snowpack
 
-# Snowpack dependency directory (https://snowpack.dev/)
-web_modules/
+# --- Yarn / pnpm ---
 .yarn/cache/
 .yarn/unplugged/
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+.yarn-integrity
 
 # --- Firebase, API Keys, Secrets ---
 .env
 .env.*
 *.env
+*.pem
+*.key
 firebase-debug.log
 firebase.json
-config/**/*.json
+# Ignore all .json keys under config/ or anywhere else
+**/config/*.json
+**/service-account-*.json
+**/*firebase-adminsdk*.json
 
 # --- VS Code ---
 .vscode/
