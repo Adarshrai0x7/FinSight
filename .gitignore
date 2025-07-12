@@ -134,3 +134,5 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+# filepath: stock-screener-frontened/.gitignore
+config/finsight-7b199-firebase-adminsdk-fbsvc-f186993171.json

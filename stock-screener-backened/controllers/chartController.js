@@ -1,59 +1,33 @@
-const axios = require('axios');
-const apiKey = process.env.TWELVE_DATA_API_KEY;
+const axios = require("axios");
+const API_KEY = process.env.ALPHA_VANTAGE_API_KEY;
 
-// ✅ For stock or index data (Twelve Data works for both)
-exports.getStockChartData = async (req, res) => {
-  const symbol = req.params.symbol; // e.g., MSFT, RELIANCE.BSE
-
-  try {
-    const url = `https://api.twelvedata.com/time_series?symbol=${symbol}&interval=1day&outputsize=30&apikey=${apiKey}`;
-    const response = await axios.get(url);
-
-    if (response.data.code === 400 || !response.data.values) {
-      return res.status(404).json({ error: "No data found for the given symbol" });
-    }
-
-    const data = response.data.values.map((item) => ({
-      time: item.datetime, // ✅ frontend expects "time"
-      open: parseFloat(item.open),
-      high: parseFloat(item.high),
-      low: parseFloat(item.low),
-      close: parseFloat(item.close),
-      volume: parseInt(item.volume),
-    }));
-
-    res.json(data.reverse()); // ✅ reverse to show oldest first
-  } catch (error) {
-    console.error("📛 Stock Chart Error (Twelve Data):", error.message);
-    res.status(500).json({ error: "Failed to fetch stock chart data" });
-  }
-};
-
-// ✅ Reuse same endpoint for index data
-exports.getIndexChartData = async (req, res) => {
-  const symbol = req.params.symbol; // e.g., ^NSEI for NIFTY
+exports.getChartData = async (req, res) => {
+  const { symbol } = req.params;
 
   try {
-    const url = `https://api.twelvedata.com/time_series?symbol=${symbol}&interval=1day&outputsize=200&apikey=${apiKey}`;
-
+    const url = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${symbol}&outputsize=compact&apikey=${API_KEY}`;
     const response = await axios.get(url);
+    const rawData = response.data;
 
-    if (response.data.code === 400 || !response.data.values) {
-      return res.status(404).json({ error: "No data found for the given index symbol" });
+    const timeSeries = rawData["Time Series (Daily)"];
+    if (!timeSeries) {
+      return res.status(404).json({ error: "No chart data available" });
     }
 
-    const data = response.data.values.map((item) => ({
-      time: item.datetime,
-      open: parseFloat(item.open),
-      high: parseFloat(item.high),
-      low: parseFloat(item.low),
-      close: parseFloat(item.close),
-      volume: parseInt(item.volume),
+    // Transform into frontend-compatible format
+    const parsedData = Object.entries(timeSeries).map(([date, values]) => ({
+      time: date,
+      open: parseFloat(values["1. open"]),
+      high: parseFloat(values["2. high"]),
+      low: parseFloat(values["3. low"]),
+      close: parseFloat(values["4. close"]),
+      volume: parseInt(values["5. volume"]),
     }));
 
-    res.json(data.reverse());
+    // Alpha Vantage returns latest first, we want oldest first
+    res.json(parsedData.reverse());
   } catch (error) {
-    console.error("📛 Index Chart Error (Twelve Data):", error.message);
-    res.status(500).json({ error: "Failed to fetch index chart data" });
+    console.error("📉 Chart API Error:", error.message);
+    res.status(500).json({ error: "Failed to fetch chart data" });
   }
 };

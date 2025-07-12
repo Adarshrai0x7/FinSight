@@ -1,308 +1,534 @@
 "use client";
+import dynamic from "next/dynamic";
 
-import { useEffect, useRef, useState } from "react";
+
+const TradingViewChart = dynamic(() => import('@/components/TradingViewChart'), { ssr: false });
+
+
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Camera,
   TrendingUp,
+  TrendingDown,
   BarChart3,
   Settings,
   Maximize2,
-} from "lucide-react";
-import {
-  createChart,
-  CrosshairMode,
-  IChartApi,
-  ISeriesApi,
-  Time,
-} from "lightweight-charts";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+  Volume2,
+  Activity,
+  Target,
+  Layers,
+  Eye,
+  EyeOff,
+  Plus,
+  Minus,
+  RotateCcw,
+  Play,
+  Pause,
+  RefreshCw
+} from 'lucide-react';
 
-interface RawStockData {
-  date: string;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-  [key: string]: any;
-}
+const ChartArea = () => {
+  const [symbol, setSymbol] = useState('AAPL');
+  type StockDataPoint = {
+    time: string;
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+    volume: number;
+  };
+  const [stockData, setStockData] = useState<StockDataPoint[]>([]);
+  const [selectedTimeframe, setSelectedTimeframe] = useState('1D');
+  const [chartType, setChartType] = useState('candlestick');
+  type IndicatorKey = 'sma' | 'ema' | 'rsi' | 'macd' | 'bollinger' | 'volume';
+  const [indicators, setIndicators] = useState<{
+    sma: boolean;
+    ema: boolean;
+    rsi: boolean;
+    macd: boolean;
+    bollinger: boolean;
+    volume: boolean;
+  }>({
+    sma: false,
+    ema: false,
+    rsi: false,
+    macd: false,
+    bollinger: false,
+    volume: true
+  });
+  const [isLoading, setIsLoading] = useState(false);
+  const [currentPrice, setCurrentPrice] = useState<number | null>(null);
+  const [priceChange, setPriceChange] = useState(0);
+  const [priceChangePercent, setPriceChangePercent] = useState(0);
+  const [isRealTime, setIsRealTime] = useState(false);
+  const [showDrawingTools, setShowDrawingTools] = useState(false);
+  const [selectedIndicator, setSelectedIndicator] = useState(null);
+  const [alertPrice, setAlertPrice] = useState('');
+  const [showAlerts, setShowAlerts] = useState(false);
 
-interface CandlestickData {
-  time: Time;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-}
+  const chartRef = useRef(null);
+  const timeframes = ['1m', '5m', '15m', '30m', '1h', '4h', '1D', '1W', '1M'];
+  const chartTypes = ['candlestick', 'line', 'area', 'bars'];
 
-interface VolumeData {
-  time: Time;
-  value: number;
-  color: string;
-}
-
-export function ChartArea() {
-  const [symbol, setSymbol] = useState("MSFT");
-  const [stockData, setStockData] = useState<CandlestickData[]>([]);
-  const [volumeData, setVolumeData] = useState<VolumeData[]>([]);
-  const [selectedTimeframe, setSelectedTimeframe] = useState("1h");
-  const [showVolume, setShowVolume] = useState(true);
-  const [showIndicators, setShowIndicators] = useState(false);
-
-  const chartContainerRef = useRef<HTMLDivElement>(null);
-  const chartRef = useRef<IChartApi | null>(null);
-  const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
-  const volumeSeriesRef = useRef<ISeriesApi<"Histogram"> | null>(null);
-
-  const timeframes = ["1m", "30m", "1h", "1D", "1W", "1M"];
-
-  const fetchChartData = async () => {
-    try {
-      const response = await fetch(
-        `http://localhost:5000/api/stocks/chart/index/${symbol}`
-      );
-      const raw: RawStockData[] = await response.json();
-
-      const candlesticks: CandlestickData[] = [];
-      const volumes: VolumeData[] = [];
-      const upColor = "#16a34a";
-      const downColor = "#dc2626";
-
-      raw.forEach((d) => {
-        const time = (new Date(d.time).getTime() / 1000) as Time;
-        candlesticks.push({
-          time,
-          open: d.open,
-          high: d.high,
-          low: d.low,
-          close: d.close,
-        });
-        volumes.push({
-          time,
-          value: Math.floor(Math.random() * (2000000 - 1000000 + 1)) + 1000000,
-          color: d.close >= d.open ? upColor : downColor,
-        });
+  // Mock data generation for demo
+  const generateMockData = () => {
+    const data = [];
+    const basePrice = 150;
+    let price = basePrice;
+    
+    for (let i = 0; i < 100; i++) {
+      const change = (Math.random() - 0.5) * 4;
+      const open = price;
+      const close = price + change;
+      const high = Math.max(open, close) + Math.random() * 2;
+      const low = Math.min(open, close) - Math.random() * 2;
+      const volume = Math.floor(Math.random() * 1000000) + 500000;
+      
+      data.push({
+        time: new Date(Date.now() - (100 - i) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        open: parseFloat(open.toFixed(2)),
+        high: parseFloat(high.toFixed(2)),
+        low: parseFloat(low.toFixed(2)),
+        close: parseFloat(close.toFixed(2)),
+        volume
       });
-
-      setStockData(candlesticks);
-      setVolumeData(volumes);
-    } catch (error) {
-      console.error("Chart fetch error:", (error as Error).message);
+      
+      price = close;
     }
+    
+    return data;
+  };
+
+ const fetchChartData = async () => {
+  setIsLoading(true);
+  try {
+    const response = await fetch('http://localhost:5000/api/stocks/chart/AAPL');
+    const data = await response.json();
+    setStockData(data);
+
+    if (data.length > 1) {
+      const latest = data[data.length - 1];
+      const previous = data[data.length - 2];
+      setCurrentPrice(latest.close);
+      const change = latest.close - previous.close;
+      setPriceChange(change);
+      setPriceChangePercent(((change / previous.close) * 100));
+    }
+  } catch (error) {
+    console.error('Chart fetch error:', error);
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+
+  const toggleIndicator = (indicator: IndicatorKey) => {
+    setIndicators(prev => ({
+      ...prev,
+      [indicator]: !prev[indicator]
+    }));
+  };
+
+  const toggleRealTime = () => {
+    setIsRealTime(!isRealTime);
+  };
+
+  const resetChart = () => {
+    setIndicators({
+      sma: false,
+      ema: false,
+      rsi: false,
+      macd: false,
+      bollinger: false,
+      volume: true
+    });
+    setSelectedTimeframe('1D');
+    setChartType('candlestick');
   };
 
   useEffect(() => {
     fetchChartData();
-  }, [symbol]);
+  }, [symbol, selectedTimeframe]);
 
+  // Real-time price simulation
   useEffect(() => {
-    if (!chartContainerRef.current || stockData.length === 0) return;
+    if (!isRealTime) return;
+    
+    const interval = setInterval(() => {
+      if (currentPrice) {
+        const change = (Math.random() - 0.5) * 0.5;
+        const newPrice = currentPrice + change;
+        setCurrentPrice(newPrice);
+        setPriceChange(prev => prev + change);
+        setPriceChangePercent(((priceChange + change) / (currentPrice - priceChange)) * 100);
+      }
+    }, 1000);
 
-   chartRef.current = createChart(chartContainerRef.current, {
-  layout: {
-    background: { color: "#0e0e0e" },
-    textColor: "#d1d5db", // light gray
-    fontSize: 12,
-  },
-  grid: {
-    vertLines: { color: "#2d2d2d" },
-    horzLines: { color: "#2d2d2d" },
-  },
-  crosshair: {
-    mode: CrosshairMode.Normal,
-  },
-  timeScale: {
-    borderColor: "#2d2d2d",
-    timeVisible: true,
-    secondsVisible: false,
-  },
-  rightPriceScale: {
-    borderColor: "#2d2d2d",
-    scaleMargins: {
-      top: 0.1,
-      bottom: 0.1,
-    },
-  },
-  width: chartContainerRef.current.clientWidth,
-  height: 500,
-});
+    return () => clearInterval(interval);
+  }, [isRealTime, currentPrice, priceChange]);
 
-    const chart = chartRef.current;
+  const CandlestickChart = ({ data }: { data: StockDataPoint[] }) => {
+    const maxPrice = Math.max(...data.map(d => d.high));
+    const minPrice = Math.min(...data.map(d => d.low));
+    const priceRange = maxPrice - minPrice;
+    const chartHeight = 300;
+    const chartWidth = 800;
+    const candleWidth = chartWidth / data.length * 0.8;
 
-    candleSeriesRef.current = chart.addCandlestickSeries({
-      upColor: "#16a34a",
-      downColor: "#dc2626",
-      borderVisible: false,
-      wickUpColor: "#16a34a",
-      wickDownColor: "#dc2626",
-    });
-    candleSeriesRef.current.setData(stockData);
+    return (
+      <svg width="100%" height={chartHeight} className="bg-gray-900">
+        <defs>
+          <linearGradient id="priceGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="#00ff88" stopOpacity="0.8"/>
+            <stop offset="100%" stopColor="#00ff88" stopOpacity="0.1"/>
+          </linearGradient>
+        </defs>
+        
+        {/* Grid lines */}
+        {[...Array(10)].map((_, i) => (
+          <line
+            key={i}
+            x1="0"
+            y1={i * (chartHeight / 10)}
+            x2="100%"
+            y2={i * (chartHeight / 10)}
+            stroke="#374151"
+            strokeWidth="0.5"
+            strokeDasharray="2,2"
+          />
+        ))}
+        
+        {/* Candlesticks */}
+        {data.slice(-50).map((candle, i) => {
+          const x = (i * chartWidth / 50) + (chartWidth / 50) * 0.1;
+          const highY = ((maxPrice - candle.high) / priceRange) * chartHeight;
+          const lowY = ((maxPrice - candle.low) / priceRange) * chartHeight;
+          const openY = ((maxPrice - candle.open) / priceRange) * chartHeight;
+          const closeY = ((maxPrice - candle.close) / priceRange) * chartHeight;
+          
+          const isGreen = candle.close > candle.open;
+          const bodyTop = Math.min(openY, closeY);
+          const bodyHeight = Math.abs(closeY - openY);
+          
+          return (
+            <g key={i}>
+              {/* Wick */}
+              <line
+                x1={x + candleWidth / 2}
+                y1={highY}
+                x2={x + candleWidth / 2}
+                y2={lowY}
+                stroke={isGreen ? "#00ff88" : "#ff4444"}
+                strokeWidth="1"
+              />
+              
+              {/* Body */}
+              <rect
+                x={x}
+                y={bodyTop}
+                width={candleWidth}
+                height={Math.max(bodyHeight, 1)}
+                fill={isGreen ? "#00ff88" : "#ff4444"}
+                stroke={isGreen ? "#00ff88" : "#ff4444"}
+                strokeWidth="1"
+              />
+            </g>
+          );
+        })}
+        
+        {/* Current price line */}
+        {currentPrice && (
+          <line
+            x1="0"
+            y1={((maxPrice - currentPrice) / priceRange) * chartHeight}
+            x2="100%"
+            y2={((maxPrice - currentPrice) / priceRange) * chartHeight}
+            stroke="#fbbf24"
+            strokeWidth="2"
+            strokeDasharray="5,5"
+          />
+        )}
+      </svg>
+    );
+  };
 
-    if (showVolume) {
-      volumeSeriesRef.current = chart.addHistogramSeries({
-        priceFormat: { type: "volume" },
-        priceScaleId: "volume_scale",
-      });
-      volumeSeriesRef.current.setData(volumeData);
+  const VolumeChart = ({ data }: { data: StockDataPoint[] }) => {
+    const maxVolume = Math.max(...data.map(d => d.volume));
+    const chartHeight = 100;
+    const chartWidth = 800;
+    const barWidth = chartWidth / data.length * 0.8;
 
-      chart.priceScale("volume_scale").applyOptions({
-        scaleMargins: { top: 0.7, bottom: 0 },
-      });
-    }
-
-    const resizeObserver = new ResizeObserver((entries) => {
-      const { width, height } = entries[0].contentRect;
-      chart.applyOptions({ width, height });
-    });
-    resizeObserver.observe(chartContainerRef.current);
-
-    return () => {
-      resizeObserver.disconnect();
-      chart.remove();
-      chartRef.current = null;
-      candleSeriesRef.current = null;
-      volumeSeriesRef.current = null;
-    };
-  }, [stockData, volumeData, showVolume]);
-
-  const currentPrice = stockData[stockData.length - 1] || {};
-  const priceChange =
-    stockData.length > 1
-      ? currentPrice.close - stockData[stockData.length - 2].close
-      : 0;
-  const priceChangePercent =
-    stockData.length > 1
-      ? ((priceChange / stockData[stockData.length - 2].close) * 100).toFixed(2)
-      : "0.00";
+    return (
+      <svg width="100%" height={chartHeight} className="bg-gray-800">
+        {data.slice(-50).map((bar, i) => {
+          const x = (i * chartWidth / 50) + (chartWidth / 50) * 0.1;
+          const height = (bar.volume / maxVolume) * chartHeight;
+          const y = chartHeight - height;
+          
+          return (
+            <rect
+              key={i}
+              x={x}
+              y={y}
+              width={barWidth}
+              height={height}
+              fill="#06b6d4"
+              opacity="0.7"
+            />
+          );
+        })}
+      </svg>
+    );
+  };
 
   return (
-    <div className="flex-1 p-4 space-y-4">
-      {/* Symbol Input */}
-      <div className="flex items-center gap-2 mb-2">
-        <input
-          type="text"
-          placeholder="Enter Stock Symbol (e.g., MSFT)"
-          defaultValue={symbol}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              setSymbol(e.currentTarget.value.toUpperCase());
-            }
-          }}
-          className="bg-gray-900 border border-gray-700 text-white text-sm px-3 py-2 rounded w-64"
-        />
-        <Button
-          onClick={() => {
-            const input = document.querySelector<HTMLInputElement>('input[type="text"]');
-            if (input) setSymbol(input.value.toUpperCase());
-          }}
-          className="bg-cyan-600 text-white hover:bg-cyan-700 text-sm px-4 py-2 rounded"
-        >
-          Search
-        </Button>
-      </div>
-
-      {/* Stock Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-100">{symbol}</h1>
-            <p className="text-gray-400 text-sm">Stock Chart</p>
+    <div className="min-h-screen bg-gray-900 text-white">
+      {/* Header */}
+      <div className="bg-gray-800 border-b border-gray-700 p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <input
+              type="text"
+              placeholder="Search symbol..."
+              value={symbol}
+              onChange={(e) => setSymbol(e.target.value.toUpperCase())}
+              className="bg-gray-700 border border-gray-600 text-white px-3 py-2 rounded-lg w-40 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <button
+              onClick={fetchChartData}
+              disabled={isLoading}
+              className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg disabled:opacity-50"
+            >
+              {isLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Search'}
+            </button>
           </div>
-          <div className="flex items-center space-x-3">
-            <div className="text-xl font-bold text-gray-100">
-              ${currentPrice.close?.toFixed(2)}
-            </div>
-            <div className={`flex items-center space-x-1 ${priceChange >= 0 ? "text-green-400" : "text-red-400"}`}>
-              <TrendingUp className="h-4 w-4" />
-              <span className="font-semibold text-sm">
-                {priceChange >= 0 ? "+" : ""}
-                {priceChange.toFixed(2)} ({priceChangePercent}%)
-              </span>
-            </div>
-          </div>
-        </div>
-        <Button size="icon" className="bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 border border-cyan-500/50">
-          <Camera className="h-4 w-4" />
-        </Button>
-      </div>
-
-      {/* Chart Controls */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <div className="flex items-center space-x-1 bg-gray-800/50 rounded-lg p-1">
-            {timeframes.map((tf) => (
-              <Button
-                key={tf}
-                size="sm"
-                variant={selectedTimeframe === tf ? "default" : "ghost"}
-                className={`px-2 py-1 text-xs ${selectedTimeframe === tf ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/50" : "text-gray-400 hover:text-gray-200"}`}
-                onClick={() => setSelectedTimeframe(tf)}
-              >
-                {tf}
-              </Button>
-            ))}
-          </div>
+          
           <div className="flex items-center space-x-2">
-            <Button
-              size="sm"
-              variant="ghost"
-              className={`text-xs ${showVolume ? "text-cyan-400" : "text-gray-400"}`}
-              onClick={() => setShowVolume(!showVolume)}
+            <button
+              onClick={toggleRealTime}
+              className={`px-3 py-1 rounded-lg text-sm flex items-center space-x-1 ${
+                isRealTime 
+                  ? 'bg-green-600 hover:bg-green-700' 
+                  : 'bg-gray-600 hover:bg-gray-700'
+              }`}
             >
-              <BarChart3 className="h-4 w-4 mr-1" />
-              Volume
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              className={`text-xs ${showIndicators ? "text-cyan-400" : "text-gray-400"}`}
-              onClick={() => setShowIndicators(!showIndicators)}
+              {isRealTime ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+              <span>{isRealTime ? 'Live' : 'Paused'}</span>
+            </button>
+            
+            <button
+              onClick={() => setShowDrawingTools(!showDrawingTools)}
+              className="p-2 bg-gray-600 hover:bg-gray-700 rounded-lg"
             >
-              <Settings className="h-4 w-4 mr-1" />
-              Indicators
-            </Button>
+              <Activity className="w-4 h-4" />
+            </button>
+            
+            <button
+              onClick={() => setShowAlerts(!showAlerts)}
+              className="p-2 bg-gray-600 hover:bg-gray-700 rounded-lg"
+            >
+              <Target className="w-4 h-4" />
+            </button>
+            
+            <button
+              onClick={resetChart}
+              className="p-2 bg-gray-600 hover:bg-gray-700 rounded-lg"
+            >
+              <RotateCcw className="w-4 h-4" />
+            </button>
           </div>
         </div>
-        <Button size="sm" variant="ghost" className="text-gray-400">
-          <Maximize2 className="h-4 w-4 mr-1" />
-          Fullscreen
-        </Button>
       </div>
 
-      {currentPrice.open && (
-        <div className="grid grid-cols-4 gap-3">
-          {[
-            { label: "Open", value: currentPrice.open, color: "text-gray-300" },
-            { label: "High", value: currentPrice.high, color: "text-green-400" },
-            { label: "Low", value: currentPrice.low, color: "text-red-400" },
-            { label: "Close", value: currentPrice.close, color: "text-cyan-400" },
-          ].map(
-            (stat) =>
-              stat.value && (
-                <Card key={stat.label} className="bg-gray-800/30 border-gray-700/50">
-                  <CardContent className="p-2">
-                    <div className="text-xs text-gray-400">{stat.label}</div>
-                    <div className={`text-sm font-semibold ${stat.color}`}>
-                      ${stat.value.toFixed(2)}
-                    </div>
-                  </CardContent>
-                </Card>
-              )
+      {/* Stock Info */}
+      <div className="bg-gray-800 border-b border-gray-700 p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-6">
+            <div>
+              <h1 className="text-2xl font-bold">{symbol}</h1>
+              <p className="text-gray-400">NASDAQ</p>
+            </div>
+            
+            <div className="flex items-center space-x-4">
+              <div className="text-2xl font-bold">
+                ${currentPrice?.toFixed(2) || '0.00'}
+              </div>
+              <div className={`flex items-center space-x-2 ${
+                priceChange >= 0 ? 'text-green-400' : 'text-red-400'
+              }`}>
+                {priceChange >= 0 ? <TrendingUp className="w-5 h-5" /> : <TrendingDown className="w-5 h-5" />}
+                <span className="font-semibold">
+                  {priceChange >= 0 ? '+' : ''}{priceChange.toFixed(2)} 
+                  ({priceChangePercent.toFixed(2)}%)
+                </span>
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex items-center space-x-2">
+            <button className="p-2 bg-gray-700 hover:bg-gray-600 rounded-lg">
+              <Camera className="w-4 h-4" />
+            </button>
+            <button className="p-2 bg-gray-700 hover:bg-gray-600 rounded-lg">
+              <Maximize2 className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex">
+        {/* Sidebar */}
+        <div className="w-64 bg-gray-800 border-r border-gray-700 p-4">
+          {/* Timeframes */}
+          <div className="mb-6">
+            <h3 className="text-sm font-semibold mb-2 text-gray-400">TIMEFRAME</h3>
+            <div className="grid grid-cols-3 gap-1">
+              {timeframes.map((tf) => (
+                <button
+                  key={tf}
+                  onClick={() => setSelectedTimeframe(tf)}
+                  className={`px-2 py-1 text-xs rounded ${
+                    selectedTimeframe === tf
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                  }`}
+                >
+                  {tf}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Chart Types */}
+          <div className="mb-6">
+            <h3 className="text-sm font-semibold mb-2 text-gray-400">CHART TYPE</h3>
+            <div className="space-y-1">
+              {chartTypes.map((type) => (
+                <button
+                  key={type}
+                  onClick={() => setChartType(type)}
+                  className={`w-full px-3 py-2 text-left text-sm rounded ${
+                    chartType === type
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                  }`}
+                >
+                  {type.charAt(0).toUpperCase() + type.slice(1)}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Indicators */}
+          <div className="mb-6">
+            <h3 className="text-sm font-semibold mb-2 text-gray-400">INDICATORS</h3>
+            <div className="space-y-2">
+              {Object.entries(indicators).map(([key, enabled]) => (
+                <div key={key} className="flex items-center justify-between">
+                  <span className="text-sm text-gray-300">
+                    {key.toUpperCase()}
+                  </span>
+                  <button
+                    onClick={() => toggleIndicator(key as IndicatorKey)}
+                    className={`p-1 rounded ${
+                      enabled ? 'text-green-400' : 'text-gray-500'
+                    }`}
+                  >
+                    {enabled ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Alerts */}
+          {showAlerts && (
+            <div className="mb-6">
+              <h3 className="text-sm font-semibold mb-2 text-gray-400">PRICE ALERTS</h3>
+              <div className="space-y-2">
+                <input
+                  type="number"
+                  placeholder="Alert price"
+                  value={alertPrice}
+                  onChange={(e) => setAlertPrice(e.target.value)}
+                  className="w-full bg-gray-700 border border-gray-600 text-white px-2 py-1 rounded text-sm"
+                />
+                <button className="w-full bg-yellow-600 hover:bg-yellow-700 px-2 py-1 rounded text-sm">
+                  Set Alert
+                </button>
+              </div>
+            </div>
           )}
         </div>
-      )}
 
-      {/* Main Chart */}
-      <Card className="bg-gray-800/30 border-gray-700/50">
-        <CardContent className="p-0">
-          <div ref={chartContainerRef} className="w-full h-[500px] rounded-md" />
-        </CardContent>
-      </Card>
+        {/* Main Chart Area */}
+        <div className="flex-1 p-4">
+          <div className="bg-gray-800 rounded-lg p-4">
+            {/* Chart Controls */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-2">
+                <button className="p-1 bg-gray-700 hover:bg-gray-600 rounded">
+                  <Plus className="w-4 h-4" />
+                </button>
+                <button className="p-1 bg-gray-700 hover:bg-gray-600 rounded">
+                  <Minus className="w-4 h-4" />
+                </button>
+                <span className="text-sm text-gray-400">Zoom</span>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <span className="text-sm text-gray-400">
+                  {stockData.length} bars
+                </span>
+                {isRealTime && (
+                  <div className="flex items-center space-x-1">
+                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                    <span className="text-xs text-green-400">LIVE</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Main Chart */}
+            <div className="bg-gray-900 rounded-lg p-4 mb-4">
+              {stockData.length > 0 ? (
+                <TradingViewChart symbol={`NASDAQ:${symbol}`} />
+
+
+              ) : (
+                <div className="h-80 flex items-center justify-center text-gray-500">
+                  {isLoading ? (
+                    <div className="flex items-center space-x-2">
+                      <RefreshCw className="w-6 h-6 animate-spin" />
+                      <span>Loading chart data...</span>
+                    </div>
+                  ) : (
+                    <span>No data available</span>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Volume Chart */}
+            {indicators.volume && stockData.length > 0 && (
+              <div className="bg-gray-900 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-semibold text-gray-400">VOLUME</span>
+                  <button
+                    onClick={() => toggleIndicator('volume')}
+                    className="text-gray-500 hover:text-gray-300"
+                  >
+                    <EyeOff className="w-4 h-4" />
+                  </button>
+                </div>
+                <VolumeChart data={stockData} />
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
-}
+};
+
+export default ChartArea;

@@ -3,7 +3,7 @@ const router = express.Router();
 
 const technicalController = require('../controllers/technicalController');
 const fundamentalController = require('../controllers/fundamentalController');
-const chartController = require('../controllers/chartController'); // NEW
+const chartController = require('../controllers/chartController');
 
 // Technical Indicators
 router.get('/technical/rsi/:symbol', technicalController.getRSI);
@@ -13,8 +13,7 @@ router.get('/technical/sma/:symbol', technicalController.getSMA);
 // Fundamental Data
 router.get('/fundamentals/:symbol', fundamentalController.getFundamentals);
 
-// Charting Tools - NEW
-router.get('/chart/stock/:symbol', chartController.getStockChartData);
-router.get('/chart/index/:symbol', chartController.getIndexChartData);
+// Charting Tools (Unified API for stock + index)
+router.get('/chart/:symbol', chartController.getChartData);
 
 module.exports = router;

@@ -1,7 +1,9 @@
+/* Tailwind Directives – Required */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* Base styles and CSS variables */
 @layer base {
   :root {
     --background: 240 10% 3.9%;
@@ -29,19 +31,20 @@
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
   }
-}
 
-@layer base {
   * {
-    @apply border-border;
+    border-color: hsl(var(--border));
+    
   }
+
   body {
-    @apply bg-background text-foreground;
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 }
 
-/* Custom scrollbar for dark theme */
+/* Scrollbar Styling */
 ::-webkit-scrollbar {
   width: 8px;
 }
@@ -54,32 +57,27 @@
   background: #374151;
   border-radius: 4px;
 }
-
 ::-webkit-scrollbar-thumb:hover {
   background: #4b5563;
 }
 
-/* Neon glow effects */
+/* Neon glow effect */
 .neon-glow {
   box-shadow: 0 0 5px #06b6d4, 0 0 10px #06b6d4, 0 0 15px #06b6d4;
 }
-
-/* Custom animations */
 @keyframes pulse-neon {
-  0%,
-  100% {
+  0%, 100% {
     box-shadow: 0 0 5px #06b6d4;
   }
   50% {
     box-shadow: 0 0 10px #06b6d4, 0 0 20px #06b6d4;
   }
 }
-
 .animate-pulse-neon {
   animation: pulse-neon 2s ease-in-out infinite;
 }
 
-/* Page transition animations */
+/* Page transition */
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -90,26 +88,21 @@
     transform: translateY(0);
   }
 }
-
 .page-transition {
   animation: fadeIn 0.3s ease-in-out;
 }
 
-/* Mobile responsive navigation */
+/* Navigation Styles */
 @media (max-width: 1024px) {
   .mobile-nav-hidden {
     display: none;
   }
 }
-
-/* Sticky navigation */
 .sticky-nav {
   position: sticky;
   top: 0;
   z-index: 50;
 }
-
-/* Hover effects for navigation */
 .nav-item-hover:hover {
   transform: translateY(-1px);
   transition: all 0.2s ease-in-out;

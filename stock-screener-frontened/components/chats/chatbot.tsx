@@ -17,7 +17,9 @@ const BotAvatar = () => (
   </div>
 );
 
-const TypingIndicator = () => (
+import React from "react";
+
+const TypingIndicator: React.FC = () => (
   <motion.div
     initial={{ opacity: 0, y: 10 }}
     animate={{ opacity: 1, y: 0 }}
@@ -47,7 +49,7 @@ const TypingIndicator = () => (
 export default function ChatbotWidget() {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([
-    { sender: "bot", text: "Hi! I’m your FinSight assistant. How can I help you today?" },
+    { sender: "bot", text: "Hi! I'm your FinSight assistant. How can I help you today?" },
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -59,6 +61,7 @@ export default function ChatbotWidget() {
 
  const handleSend = async () => {
   if (!input.trim() || isLoading) return;
+
   const userMessage = { sender: "user", text: input };
   setMessages((prev) => [...prev, userMessage]);
   setInput("");
@@ -68,16 +71,29 @@ export default function ChatbotWidget() {
     const res = await fetch("http://127.0.0.1:8000/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: userMessage.text })
+      body: JSON.stringify({ message: userMessage.text }), // ✅ Fix here
     });
+
     const data = await res.json();
-    setMessages((prev) => [...prev, { sender: "bot", text: data.reply }]);
+
+    // Handle both 'reply' and 'error' from backend
+    const replyText =
+  typeof data.reply === "string"
+    ? data.reply
+    : data.reply?.content || data.reply?.result || data.error || "⚠️ No valid reply";
+
+setMessages((prev) => [...prev, { sender: "bot", text: replyText }]);
+
+    
+
   } catch (err) {
     setMessages((prev) => [...prev, { sender: "bot", text: "Oops, something went wrong. Please try again." }]);
   }
 
   setIsLoading(false);
 };
+
+
 
 
   const widgetVariants = {
@@ -97,80 +113,83 @@ export default function ChatbotWidget() {
 
   return (
     <div className="fixed bottom-6 right-6 z-50">
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            variants={widgetVariants}
-            initial="hidden"
-            animate="visible"
-            exit="hidden"
-            className="w-80 sm:w-96 h-[32rem] bg-slate-900/80 backdrop-blur-md rounded-2xl shadow-2xl flex flex-col border border-slate-700 overflow-hidden"
-          >
-            <div className="bg-slate-800/70 px-4 py-3 flex justify-between items-center border-b border-slate-700">
-              <div className="flex items-center gap-2">
-                <div className="relative">
-                  <BotAvatar />
-                  <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-slate-800" />
-                </div>
-                <h2 className="font-bold text-lg text-white">FinSight Assistant</h2>
-              </div>
-              <button onClick={() => setOpen(false)} className="text-slate-400 hover:text-white transition-colors">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4 text-sm">
-              {messages.map((msg, i) => (
-                <motion.div
-                  key={i}
-                  variants={messageVariants}
-                  initial="hidden"
-                  animate="visible"
-                  className={`flex items-start gap-2.5 ${msg.sender === "user" ? "justify-end" : ""}`}
-                >
-                  {msg.sender === "bot" && <BotAvatar />}
-                  <div
-                    className={`p-3 rounded-xl max-w-[85%] text-white ${
-                      msg.sender === "bot"
-                        ? "bg-slate-700 rounded-bl-none"
-                        : "bg-cyan-600 rounded-br-none"
-                    }`}
-                  >
-                    {msg.text}
+      <>
+        <AnimatePresence>
+          {open && (
+            <motion.div
+              variants={widgetVariants}
+              initial="hidden"
+              animate="visible"
+              exit="hidden"
+              className="w-80 sm:w-96 h-[32rem] bg-slate-900/80 backdrop-blur-md rounded-2xl shadow-2xl flex flex-col border border-slate-700 overflow-hidden"
+            >
+              <div className="bg-slate-800/70 px-4 py-3 flex justify-between items-center border-b border-slate-700">
+                <div className="flex items-center gap-2">
+                  <div className="relative">
+                    <BotAvatar />
+                    <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-slate-800" />
                   </div>
-                </motion.div>
-              ))}
-              {isLoading && <TypingIndicator />}
-              <div ref={endRef} />
-            </div>
-
-            <div className="p-3 border-t border-slate-700 bg-slate-800/50">
-              <div className="flex items-center gap-2 bg-slate-700/50 rounded-lg p-1 border border-slate-600 focus-within:border-cyan-500 transition-colors">
-                <Input
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleSend()}
-                  placeholder="Ask me anything..."
-                  className="flex-1 bg-transparent border-none focus:ring-0 focus-visible:ring-0 text-white placeholder-slate-400"
-                  disabled={isLoading}
-                />
-                <Button onClick={handleSend} size="icon" className="bg-cyan-600 hover:bg-cyan-700 w-9 h-9 flex-shrink-0" disabled={isLoading}>
-                  <SendHorizonal className="w-4 h-4" />
-                </Button>
+                  <h2 className="font-bold text-lg text-white">FinSight Assistant</h2>
+                </div>
+                <button onClick={() => setOpen(false)} className="text-slate-400 hover:text-white transition-colors">
+                  <X className="w-5 h-5" />
+                </button>
               </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
-      <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-        <Button
-          onClick={() => setOpen(!open)}
-          className="rounded-full w-16 h-16 shadow-lg bg-cyan-600 hover:bg-cyan-700 text-white flex items-center justify-center"
-        >
-          {open ? <X className="w-7 h-7" /> : <MessageSquare className="w-7 h-7" />}
-        </Button>
-      </motion.div>
+              <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4 text-sm">
+                {messages.map((msg, i) => (
+                  <motion.div
+                    key={i}
+                    variants={messageVariants}
+                    initial="hidden"
+                    animate="visible"
+                    className={`flex items-start gap-2.5 ${msg.sender === "user" ? "justify-end" : ""}`}
+                  >
+                    {msg.sender === "bot" && <BotAvatar />}
+                    <div
+                      className={`p-3 rounded-xl max-w-[85%] text-white ${
+                        msg.sender === "bot"
+                          ? "bg-slate-700 rounded-bl-none"
+                          : "bg-cyan-600 rounded-br-none"
+                      }`}
+                    >
+                      {typeof msg.text === "string" ? msg.text : JSON.stringify(msg.text)}
+
+                    </div>
+                  </motion.div>
+                ))}
+                {isLoading && <TypingIndicator />}
+                <div ref={endRef} />
+              </div>
+
+              <div className="p-3 border-t border-slate-700 bg-slate-800/50">
+                <div className="flex items-center gap-2 bg-slate-700/50 rounded-lg p-1 border border-slate-600 focus-within:border-cyan-500 transition-colors">
+                  <Input
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleSend()}
+                    placeholder="Ask me anything..."
+                    className="flex-1 bg-transparent border-none focus:ring-0 focus-visible:ring-0 text-white placeholder-slate-400"
+                    disabled={isLoading}
+                  />
+                  <Button onClick={handleSend} size="icon" className="bg-cyan-600 hover:bg-cyan-700 w-9 h-9 flex-shrink-0" disabled={isLoading}>
+                    <SendHorizonal className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
+          <Button
+            onClick={() => setOpen(!open)}
+            className="rounded-full w-16 h-16 shadow-lg bg-cyan-600 hover:bg-cyan-700 text-white flex items-center justify-center"
+          >
+            {open ? <X className="w-7 h-7" /> : <MessageSquare className="w-7 h-7" />}
+          </Button>
+        </motion.div>
+      </>
     </div>
   );
 }
