@@ -1,0 +1,27 @@
+[
+  {
+    "content": "Hello! 👋 Welcome to FinSight – your intelligent trading companion.\nI’m here to help you with charting, portfolio guidance, market insights, and everything in between.\nAsk me anything to get started!",
+    "intent": "greeting",
+    "inputs": ["hello", "hi", "hey"]
+  },
+  {
+    "content": "I'm your FinSight Assistant 🤖 – designed to help you with:\n- 📊 Charting tools for technical analysis\n- 📈 Real-time market insights\n- 💼 Portfolio assistance and trade tracking\n- 🔍 Answering trading-related FAQs\n- 🧠 Intelligent guidance using AI models\n\nYou can ask me things like:\n- “Show me the chart for TCS”\n- “Explain candlestick patterns”\n- “How’s my portfolio doing?”\n\nJust say the word!",
+    "intent": "capabilities",
+    "inputs": ["what can you do", "help", "how can you help"]
+  },
+  {
+    "content": "FinSight is a modern trading and market analysis platform tailored for retail traders and investors.\nWe offer interactive charts, personalized insights, and a powerful AI assistant (that’s me!) to help you make smarter decisions.\n\nWhether you swing trade or invest long-term, FinSight is your one-stop solution for data-driven trading. 🚀",
+    "intent": "about_website",
+    "inputs": ["what is this website", "what is finsight", "about finsight"]
+  },
+  {
+    "content": "I’m the FinSight Assistant – your AI-powered buddy for all things trading.\nI combine market data with smart language models to answer your questions, explain strategies, and assist with your portfolio – all in one place. 🤝",
+    "intent": "identity",
+    "inputs": ["who are you"]
+  },
+  {
+    "content": "Here’s how I can help you:\n\n✅ View or analyze stock charts\n✅ Get definitions of trading terms (e.g. RSI, moving average)\n✅ Portfolio questions like: “How’s my performance this week?”\n✅ General finance queries\n✅ Navigation help on FinSight\n\nLet’s make trading simple. Just type your question!",
+    "intent": "help",
+    "inputs": ["help", "what can i ask"]
+  }
+]

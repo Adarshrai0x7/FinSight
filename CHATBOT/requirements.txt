@@ -1,0 +1,21 @@
+# Core LangChain & Utilities
+langchain
+langchain-core
+langchain-huggingface
+python-dotenv
+
+# Hugging Face Transformers (for LLaMA/Mistral/etc.)
+transformers
+huggingface-hub
+
+# Vector DB for RAG
+chromadb
+sentence-transformers
+
+# Backend API
+fastapi
+uvicorn
+
+# Optional ML Utilities (keep if needed for scoring or processing)
+numpy
+scikit-learn
