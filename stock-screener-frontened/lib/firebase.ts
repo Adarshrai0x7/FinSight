@@ -1,30 +1,35 @@
 import { initializeApp } from "firebase/app";
 import { getAnalytics, isSupported } from "firebase/analytics";
 import { getAuth } from "firebase/auth";
+import { getFirestore } from "firebase/firestore"; // ✅ Add this
 
-// Your web app's Firebase configuration
+// Your Firebase config
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
-  apiKey: "AIzaSyBT19EFPcX_3qpGagqll6A8tXnL5h0dCwo",
-  authDomain: "project-1-95b65.firebaseapp.com",
-  projectId: "project-1-95b65",
-  storageBucket: "project-1-95b65.appspot.com", // fixed typo
-  messagingSenderId: "21656083932",
-  appId: "1:21656083932:web:0168dd117f7953e3dd8319",
-  measurementId: "G-17HJBMEG96"
+  apiKey: "AIzaSyCMFUqmL3wNnl0rRp1n94oxQNS-ir5w7fg",
+  authDomain: "finsight-7b199.firebaseapp.com",
+  projectId: "finsight-7b199",
+  storageBucket: "finsight-7b199.firebasestorage.app",
+  messagingSenderId: "26950318537",
+  appId: "1:26950318537:web:80da49a19bff6339669018",
+  measurementId: "G-CC9TX2ZXHG"
 };
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
-// Initialize Auth
-const auth = getAuth(app);
+// ✅ Add this
+const db = getFirestore(app);
 
-// Initialize Analytics only if supported (avoids SSR/Node errors)
+// Auth + Analytics
+const auth = getAuth(app);
 let analytics: ReturnType<typeof getAnalytics> | undefined;
+
 isSupported().then((yes) => {
   if (yes) {
     analytics = getAnalytics(app);
   }
 });
 
-export { app, auth, analytics };
+// ✅ Export db
+export { app, auth, db, analytics };

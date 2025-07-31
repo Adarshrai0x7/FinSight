@@ -1,5 +1,12 @@
 "use client";
 import dynamic from "next/dynamic";
+import TradeModal from "@/components/TradeModal";
+import ForecastPanel from "@/components/ForecastPanel"; // ← Add this
+import { useWatchlist } from "@/hooks/useWatchlist";
+
+
+
+
 
 
 const TradingViewChart = dynamic(() => import('@/components/TradingViewChart'), { ssr: false });
@@ -28,6 +35,7 @@ import {
 } from 'lucide-react';
 
 const ChartArea = () => {
+  const { add, has } = useWatchlist();
   const [symbol, setSymbol] = useState('AAPL');
   type StockDataPoint = {
     time: string;
@@ -38,6 +46,31 @@ const ChartArea = () => {
     volume: number;
   };
   const [stockData, setStockData] = useState<StockDataPoint[]>([]);
+  const [forecastData, setForecastData] = useState(null);
+
+const oneYearAgo = new Date();
+oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+
+const fetchForecastData = async () => {
+  try {
+    const res = await fetch(`http://localhost:5050/api/forecast`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ticker: symbol,
+        start: oneYearAgo.toISOString().split("T")[0], // ⬅️ 1 year ago
+        end: new Date().toISOString().split("T")[0],
+      }),
+    });
+
+    const data = await res.json();
+    setForecastData(data);
+  } catch (err) {
+    console.error("Forecast fetch error:", err);
+  }
+};
+
+
   const [selectedTimeframe, setSelectedTimeframe] = useState('1D');
   const [chartType, setChartType] = useState('candlestick');
   type IndicatorKey = 'sma' | 'ema' | 'rsi' | 'macd' | 'bollinger' | 'volume';
@@ -65,6 +98,7 @@ const ChartArea = () => {
   const [selectedIndicator, setSelectedIndicator] = useState(null);
   const [alertPrice, setAlertPrice] = useState('');
   const [showAlerts, setShowAlerts] = useState(false);
+  const [tradeType, setTradeType] = useState<"BUY" | "SELL" | null>(null);
 
   const chartRef = useRef(null);
   const timeframes = ['1m', '5m', '15m', '30m', '1h', '4h', '1D', '1W', '1M'];
@@ -148,6 +182,7 @@ const ChartArea = () => {
 
   useEffect(() => {
     fetchChartData();
+    fetchForecastData();
   }, [symbol, selectedTimeframe]);
 
   // Real-time price simulation
@@ -348,11 +383,38 @@ const ChartArea = () => {
               <h1 className="text-2xl font-bold">{symbol}</h1>
               <p className="text-gray-400">NASDAQ</p>
             </div>
-            
+            <div className="flex gap-2">
+  <button
+    onClick={() => setTradeType("BUY")}
+    className="bg-green-600 hover:bg-green-700 text-white font-semibold px-4 py-2 rounded-lg"
+  >
+    Buy
+  </button>
+  <button
+    onClick={() => setTradeType("SELL")}
+    className="bg-red-600 hover:bg-red-700 text-white font-semibold px-4 py-2 rounded-lg"
+  >
+    Sell
+  </button>
+  <button
+    onClick={() => add(symbol)}
+    disabled={has(symbol)}
+    className={`px-4 py-2 rounded-lg font-semibold ${
+      has(symbol)
+        ? "bg-gray-500 text-gray-300 cursor-not-allowed"
+        : "bg-cyan-600 hover:bg-cyan-700 text-white"
+    }`}
+  >
+    {has(symbol) ? "In Watchlist" : "Add to Watchlist"}
+  </button>
+</div>
+
+
             <div className="flex items-center space-x-4">
               <div className="text-2xl font-bold">
                 ${currentPrice?.toFixed(2) || '0.00'}
               </div>
+
               <div className={`flex items-center space-x-2 ${
                 priceChange >= 0 ? 'text-green-400' : 'text-red-400'
               }`}>
@@ -376,118 +438,11 @@ const ChartArea = () => {
         </div>
       </div>
 
-      <div className="flex">
-        {/* Sidebar */}
-        <div className="w-64 bg-gray-800 border-r border-gray-700 p-4">
-          {/* Timeframes */}
-          <div className="mb-6">
-            <h3 className="text-sm font-semibold mb-2 text-gray-400">TIMEFRAME</h3>
-            <div className="grid grid-cols-3 gap-1">
-              {timeframes.map((tf) => (
-                <button
-                  key={tf}
-                  onClick={() => setSelectedTimeframe(tf)}
-                  className={`px-2 py-1 text-xs rounded ${
-                    selectedTimeframe === tf
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-                  }`}
-                >
-                  {tf}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Chart Types */}
-          <div className="mb-6">
-            <h3 className="text-sm font-semibold mb-2 text-gray-400">CHART TYPE</h3>
-            <div className="space-y-1">
-              {chartTypes.map((type) => (
-                <button
-                  key={type}
-                  onClick={() => setChartType(type)}
-                  className={`w-full px-3 py-2 text-left text-sm rounded ${
-                    chartType === type
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-                  }`}
-                >
-                  {type.charAt(0).toUpperCase() + type.slice(1)}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Indicators */}
-          <div className="mb-6">
-            <h3 className="text-sm font-semibold mb-2 text-gray-400">INDICATORS</h3>
-            <div className="space-y-2">
-              {Object.entries(indicators).map(([key, enabled]) => (
-                <div key={key} className="flex items-center justify-between">
-                  <span className="text-sm text-gray-300">
-                    {key.toUpperCase()}
-                  </span>
-                  <button
-                    onClick={() => toggleIndicator(key as IndicatorKey)}
-                    className={`p-1 rounded ${
-                      enabled ? 'text-green-400' : 'text-gray-500'
-                    }`}
-                  >
-                    {enabled ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Alerts */}
-          {showAlerts && (
-            <div className="mb-6">
-              <h3 className="text-sm font-semibold mb-2 text-gray-400">PRICE ALERTS</h3>
-              <div className="space-y-2">
-                <input
-                  type="number"
-                  placeholder="Alert price"
-                  value={alertPrice}
-                  onChange={(e) => setAlertPrice(e.target.value)}
-                  className="w-full bg-gray-700 border border-gray-600 text-white px-2 py-1 rounded text-sm"
-                />
-                <button className="w-full bg-yellow-600 hover:bg-yellow-700 px-2 py-1 rounded text-sm">
-                  Set Alert
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
 
         {/* Main Chart Area */}
         <div className="flex-1 p-4">
           <div className="bg-gray-800 rounded-lg p-4">
-            {/* Chart Controls */}
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center space-x-2">
-                <button className="p-1 bg-gray-700 hover:bg-gray-600 rounded">
-                  <Plus className="w-4 h-4" />
-                </button>
-                <button className="p-1 bg-gray-700 hover:bg-gray-600 rounded">
-                  <Minus className="w-4 h-4" />
-                </button>
-                <span className="text-sm text-gray-400">Zoom</span>
-              </div>
-              
-              <div className="flex items-center space-x-2">
-                <span className="text-sm text-gray-400">
-                  {stockData.length} bars
-                </span>
-                {isRealTime && (
-                  <div className="flex items-center space-x-1">
-                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                    <span className="text-xs text-green-400">LIVE</span>
-                  </div>
-                )}
-              </div>
-            </div>
+           
 
             {/* Main Chart */}
             <div className="bg-gray-900 rounded-lg p-4 mb-4">
@@ -508,27 +463,29 @@ const ChartArea = () => {
                 </div>
               )}
             </div>
+            {/* Forecast Panel */}
+<ForecastPanel forecast={forecastData} />
+
 
             {/* Volume Chart */}
-            {indicators.volume && stockData.length > 0 && (
-              <div className="bg-gray-900 rounded-lg p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-semibold text-gray-400">VOLUME</span>
-                  <button
-                    onClick={() => toggleIndicator('volume')}
-                    className="text-gray-500 hover:text-gray-300"
-                  >
-                    <EyeOff className="w-4 h-4" />
-                  </button>
-                </div>
-                <VolumeChart data={stockData} />
-              </div>
-            )}
+           
           </div>
         </div>
+        {tradeType && (
+  <TradeModal
+    open={!!tradeType}
+    onClose={() => setTradeType(null)}
+    type={tradeType}
+    symbol={symbol}
+    currentPrice={currentPrice}
+  />
+)}
+
       </div>
-    </div>
+      
+    
   );
+
 };
 
 export default ChartArea;

@@ -9,6 +9,14 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  async rewrites() {
+    return [
+      {
+        source: '/api/get-filtered-stocks',
+        destination: 'http://localhost:5000/api/stocks/screen',
+      },
+    ]
+  },
 }
 
 export default nextConfig
