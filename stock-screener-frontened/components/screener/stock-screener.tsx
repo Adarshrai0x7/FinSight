@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import axios from "axios"
 import {
   Download,
   Filter,
@@ -23,137 +24,45 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { FilterPanel } from "./filter-panel"
 import { ResultsTable } from "./results-table"
 
-// Sample filter templates
-const filterTemplates = [
-  { id: 1, name: "Oversold Stocks", description: "RSI < 30, High Volume" },
-  { id: 2, name: "Bullish Crossover", description: "MACD Bullish, SMA 50/200 Cross" },
-  { id: 3, name: "Value Investing", description: "Low P/E, High Dividend Yield" },
-  { id: 4, name: "Growth Stocks", description: "High Earnings Growth, Positive Sentiment" },
-  { id: 5, name: "Momentum Setup", description: "RSI > 70, Volume Surge, Positive News" },
-]
+const BASE_URL = "http://127.0.0.1:8000" // FastAPI backend URL
 
-// Sample results data
-const sampleResults = [
-  {
-    ticker: "AAPL",
-    name: "Apple Inc.",
-    sector: "Technology",
-    price: 187.42,
-    change: 1.24,
-    rsi: 62,
-    pe: 28.5,
-    sentiment: 78,
-    recommendation: "Buy",
-  },
-  {
-    ticker: "MSFT",
-    name: "Microsoft Corporation",
-    sector: "Technology",
-    price: 415.32,
-    change: 2.56,
-    rsi: 65,
-    pe: 32.1,
-    sentiment: 82,
-    recommendation: "Strong Buy",
-  },
-  {
-    ticker: "GOOGL",
-    name: "Alphabet Inc.",
-    sector: "Technology",
-    price: 142.89,
-    change: -0.75,
-    rsi: 48,
-    pe: 24.3,
-    sentiment: 65,
-    recommendation: "Hold",
-  },
-  {
-    ticker: "AMZN",
-    name: "Amazon.com Inc.",
-    sector: "Consumer Cyclical",
-    price: 178.23,
-    change: 1.05,
-    rsi: 58,
-    pe: 41.2,
-    sentiment: 71,
-    recommendation: "Buy",
-  },
-  {
-    ticker: "TSLA",
-    name: "Tesla, Inc.",
-    sector: "Automotive",
-    price: 248.42,
-    change: -2.34,
-    rsi: 42,
-    pe: 68.5,
-    sentiment: 62,
-    recommendation: "Hold",
-  },
-  {
-    ticker: "META",
-    name: "Meta Platforms, Inc.",
-    sector: "Technology",
-    price: 472.18,
-    change: 3.45,
-    rsi: 72,
-    pe: 26.8,
-    sentiment: 74,
-    recommendation: "Buy",
-  },
-  {
-    ticker: "NVDA",
-    name: "NVIDIA Corporation",
-    sector: "Technology",
-    price: 924.73,
-    change: 5.67,
-    rsi: 78,
-    pe: 62.4,
-    sentiment: 88,
-    recommendation: "Strong Buy",
-  },
-  {
-    ticker: "JPM",
-    name: "JPMorgan Chase & Co.",
-    sector: "Financial Services",
-    price: 198.35,
-    change: 0.87,
-    rsi: 56,
-    pe: 12.1,
-    sentiment: 68,
-    recommendation: "Buy",
-  },
-  {
-    ticker: "JNJ",
-    name: "Johnson & Johnson",
-    sector: "Healthcare",
-    price: 152.64,
-    change: -0.32,
-    rsi: 45,
-    pe: 18.7,
-    sentiment: 52,
-    recommendation: "Hold",
-  },
-  {
-    ticker: "V",
-    name: "Visa Inc.",
-    sector: "Financial Services",
-    price: 275.89,
-    change: 1.12,
-    rsi: 61,
-    pe: 30.2,
-    sentiment: 73,
-    recommendation: "Buy",
-  },
+const filterTemplates = [
+  { id: 1, name: "Value Investing", description: "Low P/E, High Dividend Yield" },
+  { id: 2, name: "Growth Stocks", description: "High Earnings Growth, Positive Sentiment" },
+  { id: 3, name: "Momentum Setup", description: "RSI > 70, Volume Surge" },
 ]
 
 export function StockScreener() {
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(true)
-  const [activeFilterTab, setActiveFilterTab] = useState("technical")
+  const [activeFilterTab, setActiveFilterTab] = useState("fundamental")
   const [bookmarkedStocks, setBookmarkedStocks] = useState<string[]>([])
   const [selectedTemplate, setSelectedTemplate] = useState<number | null>(null)
-  const [results, setResults] = useState(sampleResults)
+  const [results, setResults] = useState<any[]>([])
   const [isFiltersApplied, setIsFiltersApplied] = useState(false)
+  const [loading, setLoading] = useState(true)
 
+  // Current filters state
+  const [currentFilters, setCurrentFilters] = useState({
+    peGt: 0,
+    peLt: 30,
+    roeGt: 10,
+    marketCapGt: 1000,
+  })
+
+  // Initial load - fetch all stocks
+  useEffect(() => {
+    axios.get(`${BASE_URL}/stocks`)
+      .then(response => {
+        setResults(response.data)
+        setLoading(false)
+      })
+      .catch(error => {
+        console.error("Error fetching stocks:", error)
+        setLoading(false)
+      })
+  }, [])
+
+  // Toggle bookmark
   const toggleBookmark = (ticker: string) => {
     if (bookmarkedStocks.includes(ticker)) {
       setBookmarkedStocks(bookmarkedStocks.filter((stock) => stock !== ticker))
@@ -162,19 +71,47 @@ export function StockScreener() {
     }
   }
 
-  const applyFilters = () => {
-    // In a real app, this would apply the actual filters
-    // For now, we'll just set a flag to indicate filters were applied
-    setIsFiltersApplied(true)
+  // Apply Filters -> Fetch from backend /screener
+  const applyFilters = async () => {
+    setLoading(true)
+    try {
+      const params = {
+        pe_lt: currentFilters.peLt,
+        pe_gt: currentFilters.peGt,
+        roe_gt: currentFilters.roeGt / 100,          // convert % to decimal
+        market_cap_gt: currentFilters.marketCapGt * 1e7 // convert Cr to approx USD
+      }
+      const response = await axios.get(`${BASE_URL}/screener`, { params })
+      setResults(response.data)
+      setIsFiltersApplied(true)
+    } catch (error) {
+      console.error("Error fetching filtered stocks:", error)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const exportResults = () => {
-    // In a real app, this would export the results to CSV
-    console.log("Exporting results...")
+    const csvContent = [
+      ["Symbol", "Name", "PE Ratio", "ROE", "Market Cap"],
+      ...results.map(stock => [
+        stock.symbol,
+        stock.name,
+        stock.pe_ratio ?? "",
+        stock.roe ?? "",
+        stock.market_cap ?? ""
+      ])
+    ].map(row => row.join(",")).join("\n")
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.setAttribute("href", url)
+    link.setAttribute("download", "stock_screener_results.csv")
+    link.click()
   }
 
   const selectFilterTemplate = (templateId: number) => {
-    // In a real app, this would load the template's filters
     setSelectedTemplate(templateId === selectedTemplate ? null : templateId)
   }
 
@@ -248,7 +185,7 @@ export function StockScreener() {
 
       {/* Main Content */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Filter Configuration Panel */}
+        {/* Filter Panel */}
         <Collapsible
           open={isFilterPanelOpen}
           onOpenChange={setIsFilterPanelOpen}
@@ -291,7 +228,10 @@ export function StockScreener() {
                 </TabsList>
               </Tabs>
 
-              <FilterPanel activeTab={activeFilterTab} />
+              <FilterPanel
+                activeTab={activeFilterTab}
+                onFiltersChange={(filters) => setCurrentFilters(filters)}
+              />
 
               <Button
                 className="w-full mt-6 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 border border-cyan-500/50"
@@ -314,20 +254,18 @@ export function StockScreener() {
                 <Badge className="bg-green-500/20 text-green-400 border border-green-500/50">Filters Applied</Badge>
               )}
             </div>
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" className="text-gray-400 hover:text-cyan-400">
-                <SlidersHorizontal className="h-4 w-4 mr-1" />
-                Columns
-              </Button>
-              <Button variant="ghost" size="sm" className="text-gray-400 hover:text-cyan-400">
-                <BarChart3 className="h-4 w-4 mr-1" />
-                Sort
-              </Button>
-            </div>
           </div>
 
           <div className="flex-1 overflow-y-auto p-4">
-            <ResultsTable results={results} bookmarkedStocks={bookmarkedStocks} onToggleBookmark={toggleBookmark} />
+            {loading ? (
+              <div className="text-gray-400 text-center py-10">Loading stocks...</div>
+            ) : (
+              <ResultsTable
+                results={results}
+                bookmarkedStocks={bookmarkedStocks}
+                onToggleBookmark={toggleBookmark}
+              />
+            )}
           </div>
         </div>
       </div>
