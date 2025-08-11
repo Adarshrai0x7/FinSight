@@ -21,9 +21,7 @@ const ForecastPanel = ({ forecast }: { forecast: any }) => {
   const rmse = typeof forecast.metrics?.rmse === "number" ? forecast.metrics.rmse.toFixed(2) : "N/A";
 
   const lastPrice = forecast.last_observed_price || 1;
-  const percentRmse = forecast.metrics?.rmse
-    ? ((forecast.metrics.rmse / lastPrice) * 100).toFixed(2) + "%"
-    : "N/A";
+  
 
   const chartData = forecast.forecast.map((d: any) => ({
     date: d.date,
@@ -40,8 +38,7 @@ const ForecastPanel = ({ forecast }: { forecast: any }) => {
       <p><strong>Seasonal Order:</strong> {seasonalOrder}</p>
       <p><strong>MSE:</strong> {mse}</p>
       <p><strong>RMSE:</strong> {rmse}</p>
-      <p><strong>% RMSE:</strong> {percentRmse}</p>
-
+      
       <div className="mt-4">
         <h3 className="text-md font-semibold mb-1">Forecast Chart</h3>
 <ResponsiveContainer width="100%" height={220}>
