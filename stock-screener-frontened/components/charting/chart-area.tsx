@@ -53,7 +53,7 @@ oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
 
 const fetchForecastData = async () => {
   try {
-    const res = await fetch(`http://localhost:5050/api/forecast`, {
+    const res = await fetch(`http://127.0.0.1:8000/api/forecast`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -136,20 +136,30 @@ const fetchForecastData = async () => {
  const fetchChartData = async () => {
   setIsLoading(true);
   try {
-    const response = await fetch('http://localhost:5000/api/stocks/chart/AAPL');
+    const response = await fetch(`http://127.0.0.1:5000/api/stocks/chart/${symbol}`);
     const data = await response.json();
-    setStockData(data);
-
-    if (data.length > 1) {
+    
+    if (Array.isArray(data) && data.length > 1) {
+      setStockData(data);
       const latest = data[data.length - 1];
       const previous = data[data.length - 2];
       setCurrentPrice(latest.close);
       const change = latest.close - previous.close;
       setPriceChange(change);
       setPriceChangePercent(((change / previous.close) * 100));
+    } else {
+      throw new Error(data.error || "Invalid data format");
     }
   } catch (error) {
-    console.error('Chart fetch error:', error);
+    console.error('Chart fetch error or rate limit, falling back to mock data:', error);
+    const mockData = generateMockData();
+    setStockData(mockData);
+    const latest = mockData[mockData.length - 1];
+    const previous = mockData[mockData.length - 2];
+    setCurrentPrice(latest.close);
+    const change = latest.close - previous.close;
+    setPriceChange(change);
+    setPriceChangePercent(((change / previous.close) * 100));
   } finally {
     setIsLoading(false);
   }

@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from rag_chain import qa_chain  # This is your function
-from langchain.schema import Document
+from langchain_core.documents import Document
 
 app = FastAPI()
 

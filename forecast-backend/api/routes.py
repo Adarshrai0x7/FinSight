@@ -13,7 +13,7 @@ class ForecastRequest(BaseModel):
 @router.post("/forecast")
 def forecast_stock(data: ForecastRequest):
     try:
-        print(f"📈 Received forecast request: {data.ticker} from {data.start} to {data.end}, {data.forecast_days} days ahead")
+        print(f"Received forecast request: {data.ticker} from {data.start} to {data.end}, {data.forecast_days} days ahead")
 
         result = run_forecast(
             ticker=data.ticker,
@@ -37,5 +37,5 @@ def forecast_stock(data: ForecastRequest):
         }
 
     except Exception as e:
-        print(f"❌ Forecasting failed: {str(e)}")
+        print(f"Forecasting failed: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Forecasting failed: {str(e)}")
