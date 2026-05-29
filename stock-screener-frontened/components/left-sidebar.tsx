@@ -1,32 +1,50 @@
+"use client"
+
 import { Search, Calendar, X } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useWatchlist } from "@/hooks/useWatchlist"
+import { API_CONFIG } from "@/lib/api-config"
 
-const economicEvents = [
-  { date: "Dec 12", time: "09:30", event: "Market Open", flag: "🇺🇸", impact: "high" },
-  { date: "Dec 12", time: "10:00", event: "CPI Data Release", flag: "🇺🇸", impact: "high" },
-  { date: "Dec 12", time: "14:00", event: "Fed Speech", flag: "🇺🇸", impact: "medium" },
-  { date: "Dec 13", time: "08:30", event: "GDP Report", flag: "🇪🇺", impact: "high" },
-  { date: "Dec 13", time: "15:30", event: "Retail Sales", flag: "🇺🇸", impact: "medium" },
-  { date: "Dec 14", time: "10:00", event: "Inflation Data", flag: "🇬🇧", impact: "high" },
-  { date: "Dec 14", time: "13:00", event: "ECB Meeting", flag: "🇪🇺", impact: "high" },
-  { date: "Dec 15", time: "09:00", event: "Employment Data", flag: "🇺🇸", impact: "medium" },
-  { date: "Dec 15", time: "11:30", event: "Manufacturing PMI", flag: "🇺🇸", impact: "low" },
-]
+// ── Economic event type ──────────────────────────────────────────────────────
+type EconomicEvent = {
+  date: string
+  time: string
+  event: string
+  flag: string
+  impact: string
+}
 
 export function LeftSidebar() {
-  const [watchlist, setWatchlist] = useState([
-    { symbol: "AAPL", name: "Apple Inc", price: "$195.89", change: "-0.87%" },
-    { symbol: "MSFT", name: "Microsoft Corp", price: "$420.45", change: "+2.34%" },
-    { symbol: "GOOGL", name: "Alphabet Inc", price: "$142.56", change: "+1.23%" },
-    { symbol: "TSLA", name: "Tesla Inc", price: "$248.42", change: "+3.45%" },
-  ])
+  const { items, remove } = useWatchlist()
 
-  const removeFromWatchlist = (symbol: string) => {
-    setWatchlist((prev) => prev.filter((stock) => stock.symbol !== symbol))
-  }
+  // ── Economic events: fetch from backend (fallback to empty) ──────────────
+  const [economicEvents, setEconomicEvents] = useState<EconomicEvent[]>([])
+  const [eventsLoading, setEventsLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchEvents = async () => {
+      setEventsLoading(true)
+      try {
+        const res = await fetch(`${API_CONFIG.STOCK_API}/api/news/events`)
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const data = await res.json()
+        if (Array.isArray(data) && data.length > 0) {
+          setEconomicEvents(data)
+        }
+      } catch (err) {
+        // Backend endpoint may not exist yet — show empty state
+        console.warn("Economic events endpoint not available:", err)
+        setEconomicEvents([])
+      } finally {
+        setEventsLoading(false)
+      }
+    }
+
+    fetchEvents()
+  }, [])
 
   return (
     <div className="w-80 bg-gray-900/95 backdrop-blur-sm border-r border-cyan-500/20 flex flex-col h-full">
@@ -43,7 +61,7 @@ export function LeftSidebar() {
 
       {/* Scrollable Content */}
       <div className="flex-1 overflow-y-auto p-4 pt-0 space-y-6">
-        {/* Watchlist Section */}
+        {/* Watchlist Section — powered by useWatchlist hook (Firebase + live API) */}
         <Card className="bg-gray-800/30 border-gray-700/50 shadow-lg">
           <CardHeader className="pb-3">
             <CardTitle className="text-cyan-400 flex items-center gap-2">
@@ -52,8 +70,8 @@ export function LeftSidebar() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {watchlist.length > 0 ? (
-              watchlist.map((stock) => (
+            {items.length > 0 ? (
+              items.map((stock) => (
                 <div
                   key={stock.symbol}
                   className="p-3 bg-gray-700/30 rounded-lg border border-gray-600/30 hover:border-cyan-500/50 cursor-pointer transition-all duration-200 flex justify-between items-center"
@@ -68,7 +86,7 @@ export function LeftSidebar() {
                       {stock.change}
                     </span>
                     <button
-                      onClick={() => removeFromWatchlist(stock.symbol)}
+                      onClick={() => remove(stock.symbol)}
                       className="p-1 bg-gray-800 hover:bg-red-600 rounded-md transition-all"
                     >
                       <X className="w-4 h-4 text-gray-400 hover:text-white" />
@@ -82,7 +100,7 @@ export function LeftSidebar() {
           </CardContent>
         </Card>
 
-        {/* Economic Events */}
+        {/* Economic Events — fetched from API */}
         <Card className="bg-gray-800/30 border-gray-700/50 shadow-lg">
           <CardHeader className="pb-3">
             <CardTitle className="text-cyan-400 flex items-center gap-2">
@@ -91,11 +109,25 @@ export function LeftSidebar() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {economicEvents.map((event, index) => (
-              <div
-                key={index}
-                className="flex items-center justify-between p-3 rounded-lg bg-gray-700/30 border border-gray-600/30"
-              >
+            {eventsLoading ? (
+              // Loading skeleton
+              <div className="space-y-3">
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="animate-pulse flex items-center gap-3 p-3 rounded-lg bg-gray-700/30">
+                    <div className="h-8 w-12 bg-gray-600 rounded" />
+                    <div className="flex-1 space-y-1">
+                      <div className="h-3 w-3/4 bg-gray-600 rounded" />
+                      <div className="h-2 w-1/2 bg-gray-700 rounded" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : economicEvents.length > 0 ? (
+              economicEvents.map((event, index) => (
+                <div
+                  key={index}
+                  className="flex items-center justify-between p-3 rounded-lg bg-gray-700/30 border border-gray-600/30"
+                >
                 <div className="flex items-center gap-3">
                   <div className="text-center">
                     <div className="text-xs text-gray-400">{event.date}</div>
@@ -119,7 +151,12 @@ export function LeftSidebar() {
                   </div>
                 </div>
               </div>
-            ))}
+              ))
+            ) : (
+              <p className="text-gray-500 text-sm text-center py-4">
+                No upcoming economic events
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>

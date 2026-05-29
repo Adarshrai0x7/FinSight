@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
+import { API_CONFIG } from "@/lib/api-config"
 import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -68,7 +69,7 @@ export default function ChatbotWidget() {
   setIsLoading(true);
 
   try {
-    const res = await fetch("http://127.0.0.1:8200/chat", {
+    const res = await fetch(`${API_CONFIG.CHATBOT_API}/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message: userMessage.text }), // ✅ Fix here

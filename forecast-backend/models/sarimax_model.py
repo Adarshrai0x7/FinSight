@@ -53,7 +53,7 @@ def run_forecast(ticker: str, start_date: str, end_date: str, forecast_days: int
         return {
             "ticker": ticker,
             "forecast_start": df.index[-1].strftime('%Y-%m-%d'),
-            "last_observed_price": round(df.iloc[-1], 2),
+            "last_observed_price": float(round(df.iloc[-1].item() if hasattr(df.iloc[-1], 'item') else df.iloc[-1], 2)),
             "forecast_days": forecast_days,
             "forecast": forecast_df.to_dict(orient="records"),
             "metrics": {

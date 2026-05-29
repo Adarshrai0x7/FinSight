@@ -4,6 +4,7 @@ import { Search, X, Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useState, useEffect } from "react";
 import { useWatchlist } from "@/hooks/useWatchlist";
+import { API_CONFIG } from "@/lib/api-config";
 import { useAuthStore } from "@/hooks/useAuth";
 
 export function LeftSidebar({ onSelectSymbol }: { onSelectSymbol?: (symbol: string) => void }) {
@@ -29,7 +30,7 @@ export function LeftSidebar({ onSelectSymbol }: { onSelectSymbol?: (symbol: stri
 
     setLoading(true);
     try {
-      const res = await fetch(`http://localhost:5000/api/stocks/search?query=${query}`);
+      const res = await fetch(`${API_CONFIG.STOCK_API}/api/stocks/search?query=${query}`);
       const data = await res.json();
       setSearchResults(data || []);
     } catch (err) {

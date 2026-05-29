@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import axios from "axios";
+import { API_CONFIG } from "@/lib/api-config";
 import {
   Search,
   ExternalLink,
@@ -27,7 +28,7 @@ export function TrendingStories() {
       try {
         const endpoint =
           activeTab === "latest" ? "/api/news/latest" : "/api/news/trending";
-        const res = await axios.get(`http://localhost:5000${endpoint}`);
+        const res = await axios.get(`${API_CONFIG.STOCK_API}${endpoint}`);
         setStories(res.data);
       } catch (err) {
         console.error("Error fetching news:", err);

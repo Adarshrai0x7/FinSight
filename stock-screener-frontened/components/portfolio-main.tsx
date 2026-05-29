@@ -1,141 +1,84 @@
 "use client"
 
-import { useState } from "react"
+import { getAuth } from "firebase/auth"
+import { useEffect, useState } from "react"
+import { collection, getDocs } from "firebase/firestore"
+import { db } from "@/lib/firebase"
 import { TrendingUp, TrendingDown, ExternalLink, Filter, Download } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
-const portfolioData = [
-  {
-    id: "001",
-    symbol: "AAPL",
-    name: "Apple Inc",
-    orderType: "buy",
-    orderMode: "delivery",
-    quantity: 150,
-    transactionPrice: 185.5,
-    livePrice: 195.89,
-    profitLoss: 1558.5,
-    dateTime: "2024-12-10 09:30:00",
-  },
-  {
-    id: "002",
-    symbol: "MSFT",
-    name: "Microsoft Corporation",
-    orderType: "buy",
-    orderMode: "delivery",
-    quantity: 100,
-    transactionPrice: 410.25,
-    livePrice: 420.45,
-    profitLoss: 1020.0,
-    dateTime: "2024-12-09 14:15:00",
-  },
-  {
-    id: "003",
-    symbol: "GOOGL",
-    name: "Alphabet Inc",
-    orderType: "buy",
-    orderMode: "intraday",
-    quantity: 75,
-    transactionPrice: 145.8,
-    livePrice: 142.56,
-    profitLoss: -243.0,
-    dateTime: "2024-12-11 11:45:00",
-  },
-  {
-    id: "004",
-    symbol: "TSLA",
-    name: "Tesla Inc",
-    orderType: "buy",
-    orderMode: "delivery",
-    quantity: 200,
-    transactionPrice: 235.6,
-    livePrice: 248.42,
-    profitLoss: 2564.0,
-    dateTime: "2024-12-08 10:20:00",
-  },
-  {
-    id: "005",
-    symbol: "NVDA",
-    name: "NVIDIA Corporation",
-    orderType: "buy",
-    orderMode: "delivery",
-    quantity: 50,
-    transactionPrice: 465.3,
-    livePrice: 495.22,
-    profitLoss: 1496.0,
-    dateTime: "2024-12-07 15:30:00",
-  },
-  {
-    id: "006",
-    symbol: "AMZN",
-    name: "Amazon.com Inc",
-    orderType: "sell",
-    orderMode: "intraday",
-    quantity: 80,
-    transactionPrice: 155.75,
-    livePrice: 152.3,
-    profitLoss: 276.0,
-    dateTime: "2024-12-11 13:10:00",
-  },
-  {
-    id: "007",
-    symbol: "META",
-    name: "Meta Platforms Inc",
-    orderType: "buy",
-    orderMode: "delivery",
-    quantity: 120,
-    transactionPrice: 325.8,
-    livePrice: 334.88,
-    profitLoss: 1089.6,
-    dateTime: "2024-12-06 10:45:00",
-  },
-  {
-    id: "008",
-    symbol: "NFLX",
-    name: "Netflix Inc",
-    orderType: "buy",
-    orderMode: "intraday",
-    quantity: 60,
-    transactionPrice: 445.2,
-    livePrice: 438.75,
-    profitLoss: -387.0,
-    dateTime: "2024-12-05 14:20:00",
-  },
-  {
-    id: "009",
-    symbol: "AMD",
-    name: "Advanced Micro Devices",
-    orderType: "buy",
-    orderMode: "delivery",
-    quantity: 180,
-    transactionPrice: 142.3,
-    livePrice: 148.95,
-    profitLoss: 1197.0,
-    dateTime: "2024-12-04 11:30:00",
-  },
-  {
-    id: "010",
-    symbol: "CRM",
-    name: "Salesforce Inc",
-    orderType: "sell",
-    orderMode: "intraday",
-    quantity: 90,
-    transactionPrice: 285.6,
-    livePrice: 278.45,
-    profitLoss: 643.5,
-    dateTime: "2024-12-03 16:15:00",
-  },
-]
+type PortfolioItem = {
+  id: string
+  symbol: string
+  name: string
+  orderType: "buy" | "sell"
+  orderMode: "delivery" | "intraday"
+  quantity: number
+  transactionPrice: number
+  livePrice: number
+  profitLoss: number
+  dateTime: string
+}
 
 export function PortfolioMain() {
-  const [sortBy, setSortBy] = useState("dateTime")
+  const [portfolioData, setPortfolioData] = useState<PortfolioItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const totalBalance = 1250000.0
-  const totalProfitLoss = portfolioData.reduce((sum, item) => sum + item.profitLoss, 0)
-  const totalProfitLossPercent = ((totalProfitLoss / (totalBalance - totalProfitLoss)) * 100).toFixed(2)
+  // ── Fetch holdings from Firebase (dynamic) ──────────────────────────────
+  useEffect(() => {
+    const fetchUserHoldings = async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        const auth = getAuth()
+        const user = auth.currentUser
+
+        if (!user) {
+          setError("Please log in to view your portfolio.")
+          setLoading(false)
+          return
+        }
+
+        const holdingsRef = collection(db, "users", user.uid, "holdings")
+        const snapshot = await getDocs(holdingsRef)
+
+        const data: PortfolioItem[] = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        })) as PortfolioItem[]
+
+        setPortfolioData(data)
+      } catch (err) {
+        console.error("Failed to fetch user holdings:", err)
+        setError("Failed to load portfolio data.")
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchUserHoldings()
+  }, [])
+
+  // ── Compute totals from real data ─────────────────────────────────────────
+  const totalInvested = portfolioData.reduce(
+    (sum, item) => sum + item.transactionPrice * item.quantity,
+    0
+  )
+  const totalCurrentValue = portfolioData.reduce(
+    (sum, item) => sum + item.livePrice * item.quantity,
+    0
+  )
+  const totalProfitLoss = portfolioData.reduce(
+    (sum, item) => sum + item.profitLoss,
+    0
+  )
+  const totalProfitLossPercent = totalInvested > 0
+    ? ((totalProfitLoss / totalInvested) * 100).toFixed(2)
+    : "0.00"
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-US", {
@@ -188,12 +131,18 @@ export function PortfolioMain() {
             <CardHeader className="pb-3">
               <CardTitle className="text-cyan-400 flex items-center gap-2">
                 <TrendingUp className="h-5 w-5" />
-                Total Balance
+                Total Value
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-gray-100">{formatCurrency(totalBalance)}</div>
-              <p className="text-sm text-gray-400 mt-1">Portfolio value as of today</p>
+              {loading ? (
+                <div className="h-8 w-32 bg-gray-700 rounded animate-pulse" />
+              ) : (
+                <>
+                  <div className="text-3xl font-bold text-gray-100">{formatCurrency(totalCurrentValue)}</div>
+                  <p className="text-sm text-gray-400 mt-1">Portfolio value as of today</p>
+                </>
+              )}
             </CardContent>
           </Card>
 
@@ -207,14 +156,20 @@ export function PortfolioMain() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className={`text-3xl font-bold ${totalProfitLoss >= 0 ? "text-green-400" : "text-red-400"}`}>
-                {totalProfitLoss >= 0 ? "+" : ""}
-                {formatCurrency(totalProfitLoss)}
-              </div>
-              <p className={`text-sm mt-1 ${totalProfitLoss >= 0 ? "text-green-400" : "text-red-400"}`}>
-                {totalProfitLoss >= 0 ? "+" : ""}
-                {totalProfitLossPercent}% overall return
-              </p>
+              {loading ? (
+                <div className="h-8 w-32 bg-gray-700 rounded animate-pulse" />
+              ) : (
+                <>
+                  <div className={`text-3xl font-bold ${totalProfitLoss >= 0 ? "text-green-400" : "text-red-400"}`}>
+                    {totalProfitLoss >= 0 ? "+" : ""}
+                    {formatCurrency(totalProfitLoss)}
+                  </div>
+                  <p className={`text-sm mt-1 ${totalProfitLoss >= 0 ? "text-green-400" : "text-red-400"}`}>
+                    {totalProfitLoss >= 0 ? "+" : ""}
+                    {totalProfitLossPercent}% overall return
+                  </p>
+                </>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -222,101 +177,141 @@ export function PortfolioMain() {
 
       {/* Portfolio Table - Scrollable */}
       <div className="flex-1 overflow-y-auto p-6">
-        <Card className="bg-gray-800/30 border-gray-700/50 shadow-lg">
-          <CardHeader>
-            <CardTitle className="text-cyan-400">Holdings</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-gray-700/50 hover:bg-gray-700/20">
-                    <TableHead className="text-gray-300 font-semibold">ID</TableHead>
-                    <TableHead className="text-gray-300 font-semibold">Symbol</TableHead>
-                    <TableHead className="text-gray-300 font-semibold">Stock Name</TableHead>
-                    <TableHead className="text-gray-300 font-semibold">Order Type</TableHead>
-                    <TableHead className="text-gray-300 font-semibold">Order Mode</TableHead>
-                    <TableHead className="text-gray-300 font-semibold">Quantity</TableHead>
-                    <TableHead className="text-gray-300 font-semibold">Transaction Price</TableHead>
-                    <TableHead className="text-gray-300 font-semibold">Live Price</TableHead>
-                    <TableHead className="text-gray-300 font-semibold">Profit/Loss</TableHead>
-                    <TableHead className="text-gray-300 font-semibold">Date & Time</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {portfolioData.map((item, index) => {
-                    const priceChange = item.livePrice - item.transactionPrice
-                    const priceChangePercent = ((priceChange / item.transactionPrice) * 100).toFixed(2)
-                    const dateTime = formatDateTime(item.dateTime)
+        {/* Error state */}
+        {error && (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="text-yellow-400 text-5xl mb-4">🔒</div>
+            <h3 className="text-xl font-bold text-gray-100 mb-2">{error}</h3>
+            <p className="text-gray-400">Log in to see your holdings and trade history.</p>
+          </div>
+        )}
 
-                    return (
-                      <TableRow
-                        key={item.id}
-                        className={`border-gray-700/50 hover:bg-gray-700/20 transition-colors ${
-                          index % 2 === 0 ? "bg-gray-800/20" : "bg-gray-800/10"
-                        }`}
-                      >
-                        <TableCell className="text-gray-300 font-mono">{item.id}</TableCell>
-                        <TableCell>
-                          <Button variant="link" className="p-0 h-auto text-cyan-400 hover:text-cyan-300 font-semibold">
-                            {item.symbol}
-                            <ExternalLink className="h-3 w-3 ml-1" />
-                          </Button>
-                        </TableCell>
-                        <TableCell className="text-gray-300">{item.name}</TableCell>
-                        <TableCell>
-                          <Badge
-                            variant="outline"
-                            className={`${
-                              item.orderType === "buy"
-                                ? "border-green-500/50 text-green-400 bg-green-500/10"
-                                : "border-red-500/50 text-red-400 bg-red-500/10"
-                            }`}
-                          >
-                            {item.orderType.toUpperCase()}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            variant="outline"
-                            className={`${
-                              item.orderMode === "delivery"
-                                ? "border-blue-500/50 text-blue-400 bg-blue-500/10"
-                                : "border-orange-500/50 text-orange-400 bg-orange-500/10"
-                            }`}
-                          >
-                            {item.orderMode}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-gray-300 font-mono">{item.quantity}</TableCell>
-                        <TableCell className="text-gray-300 font-mono">
-                          {formatCurrency(item.transactionPrice)}
-                        </TableCell>
-                        <TableCell className={`font-mono ${priceChange >= 0 ? "text-green-400" : "text-red-400"}`}>
-                          {formatCurrency(item.livePrice)}
-                          <div className="text-xs">
-                            {priceChange >= 0 ? "+" : ""}
-                            {priceChangePercent}%
-                          </div>
-                        </TableCell>
-                        <TableCell
-                          className={`font-mono font-semibold ${item.profitLoss >= 0 ? "text-green-400" : "text-red-400"}`}
+        {/* Loading state */}
+        {loading && !error && (
+          <Card className="bg-gray-800/30 border-gray-700/50 shadow-lg">
+            <CardContent className="p-6">
+              <div className="space-y-3">
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="flex gap-4 animate-pulse">
+                    <div className="h-4 w-16 bg-gray-700 rounded" />
+                    <div className="h-4 w-32 bg-gray-700 rounded" />
+                    <div className="h-4 w-16 bg-gray-700 rounded ml-auto" />
+                    <div className="h-4 w-16 bg-gray-700 rounded" />
+                    <div className="h-4 w-20 bg-gray-700 rounded" />
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Empty state */}
+        {!loading && !error && portfolioData.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="text-cyan-400 text-5xl mb-4">📊</div>
+            <h3 className="text-xl font-bold text-gray-100 mb-2">No holdings yet</h3>
+            <p className="text-gray-400">Start trading to see your portfolio here.</p>
+          </div>
+        )}
+
+        {/* Holdings Table */}
+        {!loading && !error && portfolioData.length > 0 && (
+          <Card className="bg-gray-800/30 border-gray-700/50 shadow-lg">
+            <CardHeader>
+              <CardTitle className="text-cyan-400">Holdings</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-gray-700/50 hover:bg-gray-700/20">
+                      <TableHead className="text-gray-300 font-semibold">ID</TableHead>
+                      <TableHead className="text-gray-300 font-semibold">Symbol</TableHead>
+                      <TableHead className="text-gray-300 font-semibold">Stock Name</TableHead>
+                      <TableHead className="text-gray-300 font-semibold">Order Type</TableHead>
+                      <TableHead className="text-gray-300 font-semibold">Order Mode</TableHead>
+                      <TableHead className="text-gray-300 font-semibold">Quantity</TableHead>
+                      <TableHead className="text-gray-300 font-semibold">Transaction Price</TableHead>
+                      <TableHead className="text-gray-300 font-semibold">Live Price</TableHead>
+                      <TableHead className="text-gray-300 font-semibold">Profit/Loss</TableHead>
+                      <TableHead className="text-gray-300 font-semibold">Date & Time</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {portfolioData.map((item, index) => {
+                      const priceChange = item.livePrice - item.transactionPrice
+                      const priceChangePercent = ((priceChange / item.transactionPrice) * 100).toFixed(2)
+                      const dateTime = formatDateTime(item.dateTime)
+
+                      return (
+                        <TableRow
+                          key={item.id}
+                          className={`border-gray-700/50 hover:bg-gray-700/20 transition-colors ${
+                            index % 2 === 0 ? "bg-gray-800/20" : "bg-gray-800/10"
+                          }`}
                         >
-                          {item.profitLoss >= 0 ? "+" : ""}
-                          {formatCurrency(item.profitLoss)}
-                        </TableCell>
-                        <TableCell className="text-gray-300">
-                          <div className="text-sm">{dateTime.date}</div>
-                          <div className="text-xs text-gray-400">{dateTime.time}</div>
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
+                          <TableCell className="text-gray-300 font-mono">{item.id}</TableCell>
+                          <TableCell>
+                            <Button variant="link" className="p-0 h-auto text-cyan-400 hover:text-cyan-300 font-semibold">
+                              {item.symbol}
+                              <ExternalLink className="h-3 w-3 ml-1" />
+                            </Button>
+                          </TableCell>
+                          <TableCell className="text-gray-300">{item.name}</TableCell>
+                          <TableCell>
+                            <Badge
+                              variant="outline"
+                              className={`${
+                                item.orderType === "buy"
+                                  ? "border-green-500/50 text-green-400 bg-green-500/10"
+                                  : "border-red-500/50 text-red-400 bg-red-500/10"
+                              }`}
+                            >
+                              {item.orderType.toUpperCase()}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant="outline"
+                              className={`${
+                                item.orderMode === "delivery"
+                                  ? "border-blue-500/50 text-blue-400 bg-blue-500/10"
+                                  : "border-orange-500/50 text-orange-400 bg-orange-500/10"
+                              }`}
+                            >
+                              {item.orderMode}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-gray-300 font-mono">{item.quantity}</TableCell>
+                          <TableCell className="text-gray-300 font-mono">
+                            {formatCurrency(item.transactionPrice)}
+                          </TableCell>
+                          <TableCell className={`font-mono ${priceChange >= 0 ? "text-green-400" : "text-red-400"}`}>
+                            {formatCurrency(item.livePrice)}
+                            <div className="text-xs">
+                              {priceChange >= 0 ? "+" : ""}
+                              {priceChangePercent}%
+                            </div>
+                          </TableCell>
+                          <TableCell
+                            className={`font-mono font-semibold ${item.profitLoss >= 0 ? "text-green-400" : "text-red-400"}`}
+                          >
+                            {item.profitLoss >= 0 ? "+" : ""}
+                            {formatCurrency(item.profitLoss)}
+                          </TableCell>
+                          <TableCell className="text-gray-300">
+                            <div className="text-sm">{dateTime.date}</div>
+                            <div className="text-xs text-gray-400">{dateTime.time}</div>
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   )

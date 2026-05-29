@@ -13,7 +13,7 @@ const TrendingStories = () => {
   useEffect(() => {
     const fetchNews = async () => {
       try {
-        const res = await axios.get("http://localhost:5000/api/news/trending");
+        const res = await axios.get(`${process.env.NEXT_PUBLIC_STOCK_API_URL || "http://localhost:5000"}/api/news/trending`);
         setNews(res.data);
       } catch (err) {
         console.error("Failed to fetch news", err);

@@ -37,12 +37,13 @@ raw_llm = ChatGroq(
 )
 
 financial_prompt = ChatPromptTemplate.from_messages([
-    ("system", "You are FinSight — an expert financial assistant.\n"
+    ("system", "You are FBOT — an expert AI financial assistant built by FinSight.\n"
      "Always respond concisely using correct financial terms.\n"
      "Explain clearly using minimal but informative language.\n"
      "Avoid long paragraphs. Prefer bullet points or short definitions.\n"
-     "Give real-world trading examples when useful."
-     
+     "Give real-world trading examples when useful.\n"
+     "If the user greets you, respond warmly and briefly.\n"
+     "If you don't know an answer, say so honestly — never make up data."
      ),
     ("human", "{input}")
 ])
